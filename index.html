@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Rifa por Thiago — Elige tu boleto</title>
+<meta name="description" content="Elige tu número de la suerte para la Rifa por Thiago."/>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-type="module">
+const { useState, useEffect, useMemo } = React;
+
+const WEBHOOK_RESERVAR = "https://hook.us2.make.com/c3ci1jl8flm7s79s43n7c6cjwolc604o";
+const WEBHOOK_CONSULTAR = "https://hook.us2.make.com/d7l3al474vn0jpfga1s0494m4kp24px0";
+const WHATSAPP_NUMBER = "527711000973";
+const MP_LINK = "https://mpago.la/1xc9QeQ";
+const VERIFY_URL = "https://noble-course-4df.notion.site/Verificar-Boleto-Rifa-por-Thiago-3aae989b21c38168ac38d0996fec3081";
+const TOTAL = 1000;
+
+const pad = (n) => n.toString().padStart(3, "0");
+
+function Index() {
+  const [statuses, setStatuses] = useState(() => Array.from({length: TOTAL}, () => "available"));
+  const [loadingStatus, setLoadingStatus] = useState(true);
+  const [selected, setSelected] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  const [form, setForm] = useState({nombre:"", telefono:"", ciudad:"", vendedor:""});
+
+  // Cargar estado real desde Notion, y refrescar cada 20s para reflejar compras nuevas
+  useEffect(() => {
+    let cancelled = false;
+
+    const syncStatuses = (isFirstLoad) => {
+      fetch(WEBHOOK_CONSULTAR, { method: "GET" })
+        .then(res => res.json())
+        .then(data => {
+          if (cancelled || !Array.isArray(data)) return;
+          setStatuses(prev => {
+            const next = [...prev];
+            data.forEach(item => {
+              const folio = item.folio;
+              if (folio && /^\d{1,3}$/.test(String(folio))) {
+                const idx = parseInt(folio, 10);
+                // No degradar un boleto que el propio usuario acaba de reservar en esta sesión
+                if (idx >= 0 && idx < TOTAL && next[idx] !== "reserved") next[idx] = "sold";
+              }
+            });
+            return next;
+          });
+        })
+        .catch(() => { /* si falla, se conserva el estado que ya se tenía */ })
+        .finally(() => { if (isFirstLoad) setLoadingStatus(false); });
+    };
+
+    syncStatuses(true);
+    const interval = setInterval(() => syncStatuses(false), 20000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, []);
+
+  const counts = useMemo(() => {
+    let sold = 0, reserved = 0, available = 0;
+    for (const s of statuses) {
+      if (s === "sold") sold++;
+      else if (s === "reserved") reserved++;
+      else available++;
+    }
+    return { sold, reserved, available };
+  }, [statuses]);
+
+  useEffect(() => {
+    document.body.style.overflow = (selected !== null || success) ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [selected, success]);
+
+  const openTicket = (i) => {
+    if (statuses[i] !== "available") return;
+    setError(null);
+    setForm({nombre:"", telefono:"", ciudad:"", vendedor:""});
+    setSelected(i);
+  };
+
+  const closeModal = () => { if (!submitting) { setSelected(null); setError(null); } };
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (selected === null) return;
+    if (!form.nombre.trim() || !form.telefono.trim() || !form.ciudad.trim()) {
+      setError("Por favor completa los campos obligatorios.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    const folio = pad(selected);
+    try {
+      const res = await fetch(WEBHOOK_RESERVAR, {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({
+          accion: "reservar", folio,
+          nombre: form.nombre.trim(), telefono: form.telefono.trim(),
+          ciudad: form.ciudad.trim(), vendedor: form.vendedor.trim(),
+          fecha: new Date().toISOString(),
+        }),
+      });
+      const rawBody = await res.text();
+      let data = {};
+      try { data = rawBody ? JSON.parse(rawBody) : {success: res.ok}; }
+      catch { data = {success: res.ok}; }
+
+      if (data.success) {
+        setStatuses(prev => { const n=[...prev]; n[selected]="reserved"; return n; });
+        setSuccess({folio});
+        setSelected(null);
+      } else {
+        if (data.folio_ocupado) {
+          setStatuses(prev => { const n=[...prev]; n[selected]="sold"; return n; });
+        }
+        setError(data.mensaje || data.message || data.error || "No se pudo reservar el boleto. Intenta con otro número.");
+      }
+    } catch (err) {
+      setError("Error de conexión. Verifica tu internet e intenta de nuevo.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const waLink = success
+    ? `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(`Hola, ya elegí mi boleto #${success.folio} para la Rifa por Thiago. Aquí está mi comprobante de pago:`)}`
+    : "";
+
+  return (
+    <div style={{backgroundColor:"#0e0c14", minHeight:"100vh", color:"#f5f2e8"}}>
+      <style>{`
+        * { box-sizing: border-box; }
+        body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+        .container { max-width: 960px; margin: 0 auto; padding: 16px; }
+        .header { text-align: center; padding: 20px 12px; border-bottom: 1px solid rgba(212,168,28,0.25); background: linear-gradient(180deg, rgba(192,40,40,0.18), transparent); }
+        .header h1 { margin: 0; font-size: 18px; letter-spacing: 1px; color: #d4a81c; font-weight: 800; }
+        .sync-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: #8f8a7d; margin-top: 6px; }
+        .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: #3fb950; }
+        .sync-dot.loading { background: #d4a81c; animation: pulse 1s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        .hero { text-align: center; padding: 28px 12px 12px; }
+        .hero h2 { margin: 0 0 10px; font-size: 28px; color: #f5f2e8; }
+        .hero h2 span { color: #d4a81c; }
+        .hero p { margin: 0 auto; max-width: 560px; color: #b8b3a6; font-size: 14px; line-height: 1.5; }
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 20px 0; padding: 12px; background: #17141d; border: 1px solid rgba(212,168,28,0.2); border-radius: 12px; }
+        .stat { text-align: center; }
+        .stat .num { font-size: 22px; font-weight: 800; }
+        .stat .lbl { font-size: 11px; text-transform: uppercase; color: #8f8a7d; letter-spacing: 0.5px; }
+        .stat.available .num { color: #3fb950; }
+        .stat.sold .num { color: #c02828; }
+        .stat.total .num { color: #d4a81c; }
+        .legend { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; font-size: 12px; color: #b8b3a6; margin-bottom: 14px; }
+        .legend span { display: inline-flex; align-items: center; gap: 6px; }
+        .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+        .dot.g { background: #3fb950; } .dot.r { background: #c02828; } .dot.y { background: #d4a81c; }
+        .grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; padding: 8px; background: #17141d; border-radius: 12px; border: 1px solid rgba(212,168,28,0.15); }
+        .cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; border-radius: 4px; border: 0; cursor: pointer; color: #0e0c14; padding: 0; font-family: ui-monospace, monospace; transition: transform 0.05s; }
+        .cell.available { background: #3fb950; }
+        .cell.available:hover { transform: scale(1.1); box-shadow: 0 0 0 2px #d4a81c; }
+        .cell.sold { background: #c02828; color: #fff; cursor: not-allowed; opacity: 0.75; }
+        .cell.reserved { background: #d4a81c; cursor: not-allowed; opacity: 0.9; }
+        @media (min-width: 640px) { .grid { grid-template-columns: repeat(20, 1fr); gap: 3px; } .cell { font-size: 9px; } .hero h2 { font-size: 34px; } }
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
+        .modal { background: #17141d; border: 1px solid rgba(212,168,28,0.35); border-radius: 14px; padding: 22px; width: 100%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+        .modal h3 { margin: 0 0 4px; color: #d4a81c; font-size: 14px; letter-spacing: 1px; }
+        .modal .folio { font-size: 42px; font-weight: 800; color: #f5f2e8; margin-bottom: 14px; font-family: ui-monospace, monospace; }
+        .field { margin-bottom: 12px; }
+        .field label { display: block; font-size: 12px; margin-bottom: 4px; color: #b8b3a6; }
+        .field input { width: 100%; padding: 10px 12px; border-radius: 8px; background: #0e0c14; border: 1px solid rgba(212,168,28,0.25); color: #f5f2e8; font-size: 14px; outline: none; }
+        .field input:focus { border-color: #d4a81c; }
+        .err { background: rgba(192,40,40,0.15); border: 1px solid #c02828; color: #ff9b9b; padding: 8px 10px; border-radius: 8px; font-size: 13px; margin-bottom: 10px; }
+        .btn-row { display: flex; gap: 8px; margin-top: 6px; }
+        .btn { flex: 1; padding: 12px; border-radius: 8px; border: 0; font-weight: 700; font-size: 14px; cursor: pointer; }
+        .btn-primary { background: #d4a81c; color: #0e0c14; }
+        .btn-primary:disabled { opacity: 0.6; cursor: wait; }
+        .btn-ghost { background: transparent; color: #b8b3a6; border: 1px solid rgba(255,255,255,0.15); }
+        .success { text-align: center; }
+        .success .check { width: 60px; height: 60px; border-radius: 50%; background: #3fb950; margin: 0 auto 14px; display: flex; align-items: center; justify-content: center; font-size: 32px; color: #0e0c14; }
+        .success h3 { color: #3fb950; letter-spacing: 0; font-size: 20px; }
+        .success p { color: #b8b3a6; font-size: 14px; }
+        .wa-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #25D366; color: #0e0c14; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: 800; width: 100%; margin-top: 8px; }
+        .verify-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: #d4a81c; color: #0e0c14; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: 800; width: 100%; }
+        .footer { text-align: center; padding: 24px 12px; color: #8f8a7d; font-size: 12px; }
+      `}</style>
+
+      <header className="header">
+        <h1>❤ RIFA POR THIAGO — ELIGE TU BOLETO</h1>
+        <div className="sync-badge">
+          <span className={`sync-dot ${loadingStatus ? "loading" : ""}`}></span>
+          {loadingStatus ? "Sincronizando con base de datos..." : "Actualizado cada 20 segundos"}
+        </div>
+      </header>
+
+      <div className="container">
+        <section className="hero">
+          <h2>Elige tu <span>número de la suerte</span></h2>
+          <p>Selecciona un número disponible, llena tus datos y recibirás las instrucciones de pago por WhatsApp para apartar tu boleto.</p>
+        </section>
+
+        <div className="stats">
+          <div className="stat sold"><div className="num">{counts.sold + counts.reserved}</div><div className="lbl">Vendidos</div></div>
+          <div className="stat available"><div className="num">{counts.available}</div><div className="lbl">Disponibles</div></div>
+          <div className="stat total"><div className="num">{TOTAL}</div><div className="lbl">Total</div></div>
+        </div>
+
+        <div className="legend">
+          <span><i className="dot g"/> Disponible</span>
+          <span><i className="dot y"/> Reservado</span>
+          <span><i className="dot r"/> Vendido</span>
+        </div>
+
+        <div className="grid" role="grid" aria-label="Boletos de rifa">
+          {statuses.map((s, i) => (
+            <button key={i} className={`cell ${s}`} onClick={() => openTicket(i)}
+              disabled={s !== "available"} title={`Boleto ${pad(i)} — ${s}`} aria-label={`Boleto ${pad(i)} ${s}`}>
+              {pad(i)}
+            </button>
+          ))}
+        </div>
+
+        <section style={{marginTop:24, padding:20, background:"#17141d", border:"1px solid rgba(212,168,28,0.25)", borderRadius:12}}>
+          <h3 style={{margin:"0 0 6px", color:"#d4a81c", fontSize:16, letterSpacing:1}}>🔒 Verifica tu boleto</h3>
+          <p style={{margin:"0 0 14px", color:"#b8b3a6", fontSize:13, lineHeight:1.5}}>
+            Si ya tienes tu boleto personalizado, verifica que es original ingresando tu folio y token en nuestra página de verificación.
+          </p>
+          <a href={VERIFY_URL} target="_blank" rel="noreferrer" className="verify-btn">
+            🔍 Ir a verificar mi boleto
+          </a>
+        </section>
+
+        <div className="footer">❤ Gracias por apoyar a Thiago</div>
+      </div>
+
+      {selected !== null && (
+        <div className="overlay" onClick={closeModal}>
+          <form className="modal" onClick={e => e.stopPropagation()} onSubmit={submit}>
+            <h3>BOLETO SELECCIONADO</h3>
+            <div className="folio">{pad(selected)}</div>
+            {error && <div className="err">{error}</div>}
+            <div className="field"><label>Nombre completo *</label>
+              <input required value={form.nombre} onChange={e=>setForm({...form, nombre:e.target.value})} maxLength={100}/></div>
+            <div className="field"><label>WhatsApp *</label>
+              <input required type="tel" value={form.telefono} onChange={e=>setForm({...form, telefono:e.target.value})} maxLength={20} placeholder="10 dígitos"/></div>
+            <div className="field"><label>Ciudad *</label>
+              <input required value={form.ciudad} onChange={e=>setForm({...form, ciudad:e.target.value})} maxLength={80}/></div>
+            <div className="field"><label>¿Quién te invitó? (opcional)</label>
+              <input value={form.vendedor} onChange={e=>setForm({...form, vendedor:e.target.value})} maxLength={80}/></div>
+            <div className="btn-row">
+              <button type="button" className="btn btn-ghost" onClick={closeModal} disabled={submitting}>Cancelar</button>
+              <button type="submit" className="btn btn-primary" disabled={submitting}>{submitting ? "Enviando..." : "Reservar"}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {success && (
+        <div className="overlay" onClick={() => setSuccess(null)}>
+          <div className="modal success" onClick={e => e.stopPropagation()}>
+            <div className="check">✓</div>
+            <h3>¡Reserva registrada!</h3>
+            <p>Tu boleto <strong style={{color:"#d4a81c"}}>#{success.folio}</strong> quedó apartado.</p>
+            <div style={{marginTop:14, padding:14, background:"#0e0c14", border:"1px solid rgba(212,168,28,0.3)", borderRadius:10, textAlign:"left"}}>
+              <p style={{margin:"0 0 10px", color:"#f5f2e8", fontSize:14, textAlign:"center"}}>
+                Realiza tu pago de <strong style={{color:"#d4a81c"}}>$500 MXN</strong> aquí:
+              </p>
+              <a href={MP_LINK} target="_blank" rel="noreferrer" className="btn btn-primary" style={{display:"block", textAlign:"center", textDecoration:"none", marginBottom:12}}>
+                Pagar con Mercado Pago
+              </a>
+              <ol style={{margin:0, paddingLeft:18, color:"#b8b3a6", fontSize:13, lineHeight:1.6}}>
+                <li>Realiza tu pago con el link de arriba.</li>
+                <li>Toma una captura de pantalla de tu comprobante.</li>
+                <li>Envíala por WhatsApp con el botón de abajo.</li>
+              </ol>
+            </div>
+            <a className="wa-btn" href={waLink} target="_blank" rel="noreferrer">Enviar comprobante por WhatsApp</a>
+            <p style={{marginTop:12, fontSize:12, color:"#8f8a7d", fontStyle:"italic"}}>
+              Uno de nuestros administradores revisará tu pago y te enviará tu boleto personalizado por WhatsApp.
+            </p>
+            <button className="btn btn-ghost" style={{marginTop:10, width:"100%"}} onClick={() => setSuccess(null)}>Cerrar</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<Index/>);
+</script>
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</body>
+</html>
