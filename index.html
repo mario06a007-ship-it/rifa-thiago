@@ -63,7 +63,14 @@ function Index() {
       fetch(WEBHOOK_CONSULTAR + "?_=" + Date.now(), { method: "GET", cache: "no-store" })
         .then(res => res.text())
         .then(rawText => {
-          setDebugInfo("Respuesta cruda: " + rawText.substring(0, 300));
+          let debugMsg = "Total chars: " + rawText.length + " | ";
+          try {
+            const firstItem = JSON.parse(rawText)[0];
+            const propsOfFirst = firstItem && firstItem.props;
+            const titleFound = Array.isArray(propsOfFirst) ? propsOfFirst.find(p => p && p.type === "title") : null;
+            debugMsg += "Types: " + (Array.isArray(propsOfFirst) ? propsOfFirst.map(p=>p.type).join(",") : "N/A") + " | TitleFound: " + JSON.stringify(titleFound);
+          } catch(e) { debugMsg += "Parse error: " + e.message; }
+          setDebugInfo(debugMsg);
           let data;
           try { data = JSON.parse(rawText); } catch(e) { data = null; }
           if (cancelled || !Array.isArray(data)) return;
