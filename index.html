@@ -157,6 +157,41 @@ function Index() {
     }
   };
 
+  // Auto-rellenar y verificar si el QR trae ?folio=X&token=Y en la URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const folioParam = params.get("folio");
+    const tokenParam = params.get("token");
+    if (folioParam) setVerFolio(folioParam);
+    if (tokenParam) setVerToken(tokenParam.toUpperCase());
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("folio") && params.get("token") && verFolio && verToken) {
+      verificarBoletoAuto();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verFolio, verToken]);
+
+  const verificarBoletoAuto = () => {
+    const folioRaw = verFolio.trim();
+    const tokenRaw = verToken.trim().toUpperCase();
+    if (!folioRaw || !tokenRaw) return;
+    const folio = folioRaw.padStart(3, "0");
+    const real = TOKENS[folio];
+    if (real && real === tokenRaw) {
+      const vendidoAhi = statuses[parseInt(folio,10)] === "sold";
+      setVerResult({ok:true, folio, confirmado: vendidoAhi});
+    } else {
+      setVerResult({ok:false, msg:"El folio o token no coinciden con un boleto original.", folio, token: tokenRaw});
+    }
+    setTimeout(() => {
+      const el = document.getElementById("verificar-section");
+      if (el) el.scrollIntoView({behavior:"smooth", block:"start"});
+    }, 300);
+  };
+
   const verificarBoleto = () => {
     const folioRaw = verFolio.trim();
     const tokenRaw = verToken.trim().toUpperCase();
@@ -270,7 +305,7 @@ function Index() {
           ))}
         </div>
 
-        <section style={{marginTop:24, padding:20, background:"#17141d", border:"1px solid rgba(212,168,28,0.25)", borderRadius:12}}>
+        <section id="verificar-section" style={{marginTop:24, padding:20, background:"#17141d", border:"1px solid rgba(212,168,28,0.25)", borderRadius:12}}>
           <h3 style={{margin:"0 0 6px", color:"#d4a81c", fontSize:16, letterSpacing:1}}>🔒 Verifica tu boleto</h3>
           <p style={{margin:"0 0 14px", color:"#b8b3a6", fontSize:13, lineHeight:1.5}}>
             Si ya tienes tu boleto personalizado, verifica que es original ingresando tu folio y token aquí mismo.
