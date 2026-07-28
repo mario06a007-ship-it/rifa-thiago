@@ -227,6 +227,7 @@ function Index() {
           <span className={`sync-dot ${loadingStatus ? "loading" : ""}`}></span>
           {loadingStatus ? "Sincronizando con base de datos..." : "Actualizado cada minuto"}
         </div>
+        {debugInfo && <div style={{fontSize:10, color:"#888", padding:"4px 12px", wordBreak:"break-all", maxWidth:"100%", overflow:"hidden"}}>{debugInfo}</div>}
 
       </header>
 
