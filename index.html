@@ -23,7 +23,7 @@ const pad = (n) => n.toString().padStart(3, "0");
 
 // Folios confirmados como vendidos al momento de publicar este sitio.
 // Se bloquean de inmediato al cargar, sin depender de la sincronización en vivo.
-const FOLIOS_VENDIDOS_CONFIRMADOS = ["000","005","009","011","027","184","444","460","999"];
+const FOLIOS_VENDIDOS_CONFIRMADOS = [];  // vacío temporalmente para probar que el sync en vivo cubre TODOS los folios, no solo estos 9
 
 function Index() {
   const [statuses, setStatuses] = useState(() => {
