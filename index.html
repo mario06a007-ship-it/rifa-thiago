@@ -20,8 +20,19 @@ const TOTAL = 1000;
 
 const pad = (n) => n.toString().padStart(3, "0");
 
+// Folios confirmados como vendidos al momento de publicar este sitio.
+// Se bloquean de inmediato al cargar, sin depender de la sincronización en vivo.
+const FOLIOS_VENDIDOS_CONFIRMADOS = ["005","009","011","027","184","444","460"];
+
 function Index() {
-  const [statuses, setStatuses] = useState(() => Array.from({length: TOTAL}, () => "available"));
+  const [statuses, setStatuses] = useState(() => {
+    const initial = Array.from({length: TOTAL}, () => "available");
+    FOLIOS_VENDIDOS_CONFIRMADOS.forEach(f => {
+      const idx = parseInt(f, 10);
+      if (idx >= 0 && idx < TOTAL) initial[idx] = "sold";
+    });
+    return initial;
+  });
   const [loadingStatus, setLoadingStatus] = useState(true);
   const [debugInfo, setDebugInfo] = useState("");
   const [selected, setSelected] = useState(null);
@@ -197,7 +208,7 @@ function Index() {
           <span className={`sync-dot ${loadingStatus ? "loading" : ""}`}></span>
           {loadingStatus ? "Sincronizando con base de datos..." : "Actualizado cada 25 segundos"}
         </div>
-        {debugInfo && <div style={{fontSize:10, color:"#888", padding:"4px 12px", wordBreak:"break-all", maxWidth:"100%", overflow:"hidden"}}>{debugInfo}</div>}
+
       </header>
 
       <div className="container">
