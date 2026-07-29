@@ -20,12 +20,33 @@ const WHATSAPP_VERIFY = "527711000973";
 const TOTAL = 1000;
 
 const pad = (n) => n.toString().padStart(3, "0");
+const pad2 = (n) => n.toString().padStart(2, "0");
+
+// Cierre de venta: un día antes del sorteo (14 de octubre 2026, 23:59:59 hora local)
+const CIERRE_VENTA = new Date("2026-10-14T23:59:59-05:00").getTime();
+const FECHA_SORTEO = new Date("2026-10-15T20:00:00-05:00").getTime();
+
+function useCountdown(targetTime) {
+  const [remaining, setRemaining] = React.useState(targetTime - Date.now());
+  React.useEffect(() => {
+    const id = setInterval(() => setRemaining(targetTime - Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [targetTime]);
+  const done = remaining <= 0;
+  const total = Math.max(0, Math.floor(remaining / 1000));
+  const days = Math.floor(total / 86400);
+  const hours = Math.floor((total % 86400) / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  return { done, days, hours, minutes, seconds };
+}
 
 // Folios confirmados como vendidos al momento de publicar este sitio.
 // Se bloquean de inmediato al cargar, sin depender de la sincronización en vivo.
 const FOLIOS_VENDIDOS_CONFIRMADOS = [];  // vacío temporalmente para probar que el sync en vivo cubre TODOS los folios, no solo estos 9
 
 function Index() {
+  const cierreCountdown = useCountdown(CIERRE_VENTA);
   const [statuses, setStatuses] = useState(() => {
     const initial = Array.from({length: TOTAL}, () => "available");
     FOLIOS_VENDIDOS_CONFIRMADOS.forEach(f => {
@@ -282,6 +303,47 @@ function Index() {
         <section className="hero">
           <h2>Elige tu <span>número de la suerte</span></h2>
           <p>Selecciona un número disponible, llena tus datos y recibirás las instrucciones de pago por WhatsApp para apartar tu boleto.</p>
+        </section>
+
+        <section style={{margin:"0 0 20px", padding:20, background:"linear-gradient(135deg, rgba(192,40,40,0.15), rgba(212,168,28,0.12))", border:"1px solid rgba(212,168,28,0.35)", borderRadius:14, textAlign:"center"}}>
+          {cierreCountdown.done ? (
+            <div style={{color:"#ff9b9b", fontWeight:800, fontSize:16}}>🔴 La venta de boletos ha cerrado. ¡Gracias por tu apoyo!</div>
+          ) : (
+            <>
+              <div style={{fontSize:12, color:"#d4a81c", fontWeight:700, letterSpacing:1, marginBottom:10, textTransform:"uppercase"}}>
+                ⏳ Cierre de venta de boletos
+              </div>
+              <div style={{display:"flex", justifyContent:"center", gap:10, flexWrap:"wrap", marginBottom:10}}>
+                {[
+                  {v: cierreCountdown.days, l: "Días"},
+                  {v: cierreCountdown.hours, l: "Horas"},
+                  {v: cierreCountdown.minutes, l: "Min"},
+                  {v: cierreCountdown.seconds, l: "Seg"},
+                ].map((u, i) => (
+                  <div key={i} style={{background:"#0e0c14", borderRadius:10, padding:"10px 14px", minWidth:64, border:"1px solid rgba(212,168,28,0.25)"}}>
+                    <div style={{fontSize:26, fontWeight:800, color:"#f5f2e8", fontFamily:"ui-monospace, monospace"}}>{pad2(u.v)}</div>
+                    <div style={{fontSize:10, color:"#8f8a7d", textTransform:"uppercase", letterSpacing:0.5}}>{u.l}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{fontSize:12, color:"#b8b3a6"}}>
+                La venta cierra el <strong style={{color:"#f5f2e8"}}>14 de octubre de 2026</strong>, un día antes del sorteo.
+              </div>
+            </>
+          )}
+        </section>
+
+        <section style={{margin:"0 0 20px", padding:18, background:"#17141d", border:"1px solid rgba(212,168,28,0.2)", borderRadius:12}}>
+          <div style={{display:"flex", alignItems:"flex-start", gap:10}}>
+            <span style={{fontSize:22}}>🎱</span>
+            <div>
+              <div style={{fontWeight:800, color:"#d4a81c", fontSize:14, marginBottom:4}}>¿Cómo se elige al ganador?</div>
+              <p style={{margin:0, fontSize:13, color:"#b8b3a6", lineHeight:1.6}}>
+                El boleto ganador será el que coincida con las <strong style={{color:"#f5f2e8"}}>últimas tres cifras del sorteo Tris de la Lotería Nacional</strong> del 15 de octubre de 2026.
+                Solo participan boletos <strong style={{color:"#3fb950"}}>completamente pagados</strong>.
+              </p>
+            </div>
+          </div>
         </section>
 
         <div className="stats">
