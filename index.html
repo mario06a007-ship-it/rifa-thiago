@@ -107,8 +107,9 @@ function Index() {
     };
 
     syncStatuses(true);
-    const interval = setInterval(() => syncStatuses(false), 60000);
-    return () => { cancelled = true; clearInterval(interval); };
+    // Solo se consulta una vez al abrir la página, no en intervalo repetido,
+    // para no agotar el límite de operaciones de Make.
+    return () => { cancelled = true; };
   }, []);
 
   const counts = useMemo(() => {
