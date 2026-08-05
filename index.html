@@ -43,7 +43,8 @@ function useCountdown(targetTime) {
 
 // Folios confirmados como vendidos al momento de publicar este sitio.
 // Se bloquean de inmediato al cargar, sin depender de la sincronización en vivo.
-const FOLIOS_VENDIDOS_CONFIRMADOS = [];  // vacío temporalmente para probar que el sync en vivo cubre TODOS los folios, no solo estos 9
+const FOLIOS_VENDIDOS_CONFIRMADOS = [];
+const WEBHOOK_APARTADOS = "https://hook.us2.make.com/tmn3e2igqcevvicrib8mx7nl94dp8piu";
 
 function Index() {
   const cierreCountdown = useCountdown(CIERRE_VENTA);
@@ -80,24 +81,39 @@ function Index() {
       return titleProp.title[0].plain_text || null;
     };
 
+    const parseFoliosFromResponse = (rawText) => {
+      let data;
+      try { data = JSON.parse(rawText); } catch(e) { return []; }
+      if (!Array.isArray(data)) return [];
+      const folios = [];
+      data.forEach(item => {
+        const inner = (item.array && item.array[0]) || item;
+        const folio = extractFolio(inner.props);
+        if (folio && /^\d{1,3}$/.test(String(folio))) folios.push(parseInt(folio, 10));
+      });
+      return folios;
+    };
+
     const syncStatuses = (isFirstLoad) => {
-      fetch(WEBHOOK_CONSULTAR + "?_=" + Date.now(), { method: "GET", cache: "no-store" })
-        .then(res => res.text())
-        .then(rawText => {
+      Promise.all([
+        fetch(WEBHOOK_CONSULTAR + "?_=" + Date.now(), { method: "GET", cache: "no-store" }).then(r => r.text()),
+        fetch(WEBHOOK_APARTADOS + "?_=" + Date.now(), { method: "GET", cache: "no-store" }).then(r => r.text()),
+      ])
+        .then(([pagadosText, apartadosText]) => {
           setDebugInfo("Sincronizado: " + new Date().toLocaleTimeString());
-          let data;
-          try { data = JSON.parse(rawText); } catch(e) { data = null; }
-          if (cancelled || !Array.isArray(data)) return;
+          if (cancelled) return;
+          const pagadosFolios = parseFoliosFromResponse(pagadosText);
+          const apartadosFolios = parseFoliosFromResponse(apartadosText);
           setStatuses(prev => {
             const next = [...prev];
-            data.forEach(item => {
-              // Cada bundle de Make viene envuelto como { array: [ { props: [...] } ] }
-              const inner = (item.array && item.array[0]) || item;
-              const folio = extractFolio(inner.props);
-              if (folio && /^\d{1,3}$/.test(String(folio))) {
-                const idx = parseInt(folio, 10);
-                if (idx >= 0 && idx < TOTAL && next[idx] !== "reserved") next[idx] = "sold";
-              }
+            // Los apartados sin pagar se pintan amarillo (reserved), a menos que el propio
+            // visitante ya lo tenga marcado como "reserved" en su sesión (mismo color, sin conflicto).
+            apartadosFolios.forEach(idx => {
+              if (idx >= 0 && idx < TOTAL && next[idx] !== "sold") next[idx] = "reserved";
+            });
+            // Los pagados al 100% siempre se pintan rojo, tienen prioridad sobre "reserved".
+            pagadosFolios.forEach(idx => {
+              if (idx >= 0 && idx < TOTAL) next[idx] = "sold";
             });
             return next;
           });
