@@ -22,9 +22,9 @@ const TOTAL = 1000;
 const pad = (n) => n.toString().padStart(3, "0");
 const pad2 = (n) => n.toString().padStart(2, "0");
 
-// Cierre de venta: un día antes del sorteo (14 de octubre 2026, 23:59:59 hora local)
-const CIERRE_VENTA = new Date("2026-10-14T23:59:59-05:00").getTime();
-const FECHA_SORTEO = new Date("2026-10-15T20:00:00-05:00").getTime();
+// Cierre de venta: un día antes del sorteo (14 de noviembre 2026, 23:59:59 hora local). Sorteo pospuesto del 15 oct al 15 nov por no alcanzar el 60% de venta.
+const CIERRE_VENTA = new Date("2026-11-14T23:59:59-05:00").getTime();
+const FECHA_SORTEO = new Date("2026-11-15T20:00:00-05:00").getTime();
 
 function useCountdown(targetTime) {
   const [remaining, setRemaining] = React.useState(targetTime - Date.now());
@@ -341,7 +341,7 @@ function Index() {
             </div>
           )}
           <div style={{fontSize:11, color:"#8f8a7d", textAlign:"center", marginTop:6}}>
-            🎱 El ganador coincide con las últimas 3 cifras del Tris (15 oct) · Solo boletos <strong style={{color:"#3fb950"}}>pagados al 100%</strong>
+            🎱 El ganador coincide con las últimas 3 cifras del Tris (15 nov) · Solo boletos <strong style={{color:"#3fb950"}}>pagados al 100%</strong>
           </div>
         </section>
 
@@ -353,13 +353,13 @@ function Index() {
             <div style={{display:"flex", gap:8}}>
               <span style={{fontSize:16}}>🎯</span>
               <p style={{margin:0, fontSize:12, color:"#b8b3a6", lineHeight:1.6}}>
-                El boleto ganador es el que coincida con las <strong style={{color:"#f5f2e8"}}>últimas 3 cifras del sorteo Tris de la Lotería Nacional</strong> del 15 de octubre de 2026. Solo participan boletos <strong style={{color:"#3fb950"}}>completamente pagados</strong>.
+                El boleto ganador es el que coincida con las <strong style={{color:"#f5f2e8"}}>últimas 3 cifras del sorteo Tris de la Lotería Nacional</strong> del <strong style={{color:"#f5f2e8"}}>15 de noviembre de 2026</strong>. Solo participan boletos <strong style={{color:"#3fb950"}}>completamente pagados</strong>.
               </p>
             </div>
             <div style={{display:"flex", gap:8}}>
               <span style={{fontSize:16}}>📅</span>
               <p style={{margin:0, fontSize:12, color:"#b8b3a6", lineHeight:1.6}}>
-                Si para el 15 de octubre <strong style={{color:"#f5f2e8"}}>no se ha vendido al menos el 60% de los boletos</strong>, la rifa no se cancela: se realizará el <strong style={{color:"#f5f2e8"}}>15 de noviembre de 2026</strong> con el mismo método.
+                <strong style={{color:"#f5f2e8"}}>Sorteo pospuesto:</strong> como al 15 de octubre aún no se había vendido el 60% de los boletos, la rifa no se cancela, se pospone. Su fecha final es el <strong style={{color:"#f5f2e8"}}>15 de noviembre de 2026</strong>, con el mismo método. Participan únicamente los boletos vendidos y pagados a esa fecha.
               </p>
             </div>
             <div style={{display:"flex", gap:8}}>
